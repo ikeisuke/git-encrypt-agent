@@ -1,145 +1,136 @@
 package main
 
 import (
-  "os"
-  "os/signal"
-  "io/ioutil"
-  "fmt"
-  "net"
-  "syscall"
-  "strings"
-  "strconv"
-  "path/filepath"
-  "log"
+	"github.com/codegangsta/cli"
+	"os"
+	"os/signal"
+	"io/ioutil"
+	"strconv"
+	"syscall"
+	"fmt"
+	"log"
 )
 
-var encryption_keys map[string]string = map[string]string{}
-
-func server(listener net.Listener) {
-  for {
-    fd, err := listener.Accept()
-    if err != nil {
-      //log.Printf("error: %v\n", err)
-      return
-    }
-    ch := make(chan string)
-    go func(ch chan string) {
-      input := ""
-      for {
-        buf := make([]byte, 512)
-        nr, err := fd.Read(buf)
-        if err != nil {
-          break
-        }
-        data := buf[0:nr]
-        input += string(data)
-      }
-      splited := strings.SplitN(strings.Trim(input, "\n"), " ", 3)
-      size := len(splited)
-      command := splited[0]
-      output := ""
-      switch command {
-      case "set":
-        if (size == 3) {
-          key := splited[1]
-          value := splited[2]
-          output = setEncryptionKey(key, value)
-        } else {
-          output = "ERR: Not enough input"
-        }
-      case "get":
-        if (size >= 2) {
-          key := splited[1]
-          output = getEncrptionKey(key)
-        } else {
-          output = "ERR: Not enough input"
-        }
-      case "list":
-        output = listEncryptionKeys()
-      default:
-        output = "ERR: command not found"
-      }
-      _, err = fd.Write([]byte(output))
-      if err != nil {
-        log.Printf("error: %v\n", err)
-      }
-      fd.Close()
-      ch <- "finish"
-    }(ch)
-    _, _ = <- ch
-  }
-}
-
-func setEncryptionKey(key string, value string) string{
-  encryption_keys[key] = value
-  return "OK"
-}
-
-func getEncrptionKey(key string) string {
-  v, ok := encryption_keys[key]
-  if (ok) {
-    return v
-  }
-  return "(nil)"
-}
-
-func listEncryptionKeys() string {
-  list := []string{}
-  for key,value := range encryption_keys {
-    list = append(list, key + ":" + value)
-  }
-  return strings.Join(list, "\n")
-}
+const PROJECT_NAME = "git-encrypt"
+const SOCKET_FILE_NAME = "agent"
 
 func main() {
-  log.SetFlags(log.Lshortfile)
-  encrypt_socket_dir, err := ioutil.TempDir("", "git-encrypt-agent.")
-  pid := strconv.Itoa(os.Getpid())
-  encrypt_socket_file := encrypt_socket_dir + "/agent." + pid
-  listener, err := net.Listen("unix", encrypt_socket_file)
-  if err != nil {
-    log.Printf("error: %v\n", err)
-    return
-  }
-  if err := os.Chmod(encrypt_socket_file, 0700); err != nil {
-    fmt.Println(err)
-  }
-  clean := make(chan int)
-  shutdown(listener, clean)
-  fmt.Println(fmt.Sprintf("GIT_ENCRYPT_SOCK=%v;export GIT_ENCRYPT_SOCK;", encrypt_socket_file))
-  fmt.Println(fmt.Sprintf("GIT_ENCRYPT_PID=%v;export GIT_ENCRYPT_PID;", pid))
-  server(listener)
-  _ = <-clean
+	log.SetFlags(log.Lshortfile)
+	app := cli.NewApp()
+	app.Name = "git-encrypt-agent"
+	app.Usage = "git enctyption key management agent"
+	app.Version = "0.0.1"
+	app.Commands = []cli.Command{
+		{
+			Name:    "start",
+			Aliases: []string{"s"},
+			Usage:   "start git-encrypt-agent daemon",
+			Action:  startAgent,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "a",
+					Value: "$TMPDIR/git-encrypt-XXXXXXXXXX/agent.<ppid>",
+					Usage: "Bind the agent to the UNIX-domain socket bind_address.",
+				},
+				cli.IntFlag{
+					Name:  "t",
+					Value: 0,
+					Usage: "Set a default value for the maximum lifetime of identities added to the agent.",
+				},
+				cli.BoolFlag{
+					Name:  "d",
+					Usage: "Debug mode. When this option is specified git-encrypt-agent will not daemonize and will write debug information to standard error.",
+				},
+			},
+		},
+		{
+			Name:   "daemon",
+			Action: daemonizeAgent,
+			Hidden: true,
+		},
+		{
+			Name:    "stop",
+			Aliases: []string{"k"},
+			Usage:   "stop git-encrypt-agent daemon",
+			Action:  stopAgent,
+		},
+	}
+	app.Run(os.Args)
 }
 
-func shutdown(listener net.Listener, clean chan int) {
-  c := make(chan os.Signal, 2)
-  signal.Notify(c, os.Interrupt, syscall.SIGTERM)
-  go func() {
-    interrupt := 0
-    for {
-      s := <-c
-      switch s {
-      case os.Interrupt, syscall.SIGINT:
-        if (interrupt == 0) {
-          fmt.Println("Interrupt...")
-          interrupt++
-          continue
-        }
-      }
-      break
-    }
-    file, err := listener.(*net.UnixListener).File()
-    if (err != nil) {
-      log.Printf("error: %v\n", err)
-    }
-    if err := listener.Close(); err != nil {
-      log.Printf("error: %v\n", err)
-    }
-    dirname := strings.Replace(filepath.Dir(file.Name()), "unix:", "", 1)
-    if err := os.RemoveAll(dirname); err != nil {
-      log.Printf("error: %v\n", err)
-    }
-    clean <- 1
-  }()
+func startAgent(c *cli.Context) (error) {
+	socket, err := socketFile()
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	pid := os.Getpid()
+	if !c.Bool("d") {
+		// cmd := exec.Command(os.Args[0], "daemon")
+		// cmd.Env = append(os.Environ(), fmt.Sprintf("GIT_ENCRYPT_SOCK=%v", socket))
+		// if err := cmd.Start(); err != nil {
+		// 	return cli.NewExitError(err.Error(), 1)
+		// }
+		// pid = cmd.Process.Pid
+	}
+	fmt.Printf("GIT_ENCRYPT_SOCK=%v;export GIT_ENCRYPT_SOCK;\n", socket)
+	fmt.Printf("GIT_ENCRYPT_PID=%v;export GIT_ENCRYPT_PID;\n", pid)
+	fmt.Printf("echo Agent pid %v;\n", pid)
+	if c.Bool("d") {
+		notify := make(chan int)
+		signalHandler(notify);
+		agent, err := NewAgent(socket)
+		if (err != nil) {
+			return err;
+		}
+		go func() {
+			_ = <-notify;
+			if err := agent.Close(); err != nil {
+				log.Printf("error: %v", err)
+			}
+		}()
+		agent.Run()
+	}
+	return nil
+}
+
+func stopAgent(c *cli.Context) (error){
+	return nil
+}
+
+func daemonizeAgent(c *cli.Context) (error){
+	return nil
+}
+
+func socketFile() (string, error) {
+	tempDir, err := ioutil.TempDir("", fmt.Sprintf("%s.", PROJECT_NAME))
+	if err != nil {
+		return "", err
+	}
+	pid := strconv.Itoa(os.Getpid())
+	socket := tempDir + "/" + SOCKET_FILE_NAME + "." + pid
+	if err := os.Chmod(tempDir, 0700); err != nil {
+		return "", err
+	}
+	return socket, nil
+}
+
+func signalHandler(notify chan int) {
+	sigs := make(chan os.Signal, 2)
+	signal.Notify(sigs, os.Interrupt, syscall.SIGTERM)
+	go func() {
+		interrupt := 0
+		for {
+			s := <-sigs
+			switch s {
+			case os.Interrupt, syscall.SIGINT:
+				if interrupt == 0 {
+					fmt.Println("Interrupt...")
+					interrupt++
+					continue
+				}
+			}
+			notify <- 1
+			break
+		}
+	}()
 }
