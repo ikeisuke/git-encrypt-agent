@@ -83,6 +83,18 @@ func startAgent(c *cli.Context) (error) {
 }
 
 func stopAgent(c *cli.Context) error {
+	pid, err := strconv.Atoi(os.Getenv("GIT_ENCRYPT_PID"))
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	process, err := os.FindProcess(pid)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	err = process.Kill()
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
 	return nil
 }
 
