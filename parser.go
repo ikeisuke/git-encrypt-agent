@@ -65,8 +65,6 @@ func (r *Parser) Parse(conn net.Conn) error {
 	for {
 		buf := make([]byte, 512)
 		nr, err := conn.Read(buf)
-		fmt.Printf("%v", string(buf[0:nr]))
-		fmt.Printf("%v", err)
 		if err != nil {
 			if err == io.EOF {
 				r.eof()
@@ -75,7 +73,6 @@ func (r *Parser) Parse(conn net.Conn) error {
 				return err
 			}
 		}
-		fmt.Printf("%v", string(buf[0:nr]))
 		err = r.write(buf[0:nr])
 		if err != nil {
 			return err
@@ -97,7 +94,6 @@ func (r *Parser) write(buf []byte) error {
 	if length == 0 {
 		return nil
 	}
-	//fmt.Printf("-----\n%v\n%v\n-----\n", length, string(buf))
 	switch r.state {
 	case UNINITIALIZED:
 		if buf[0:1][0] == 42 {

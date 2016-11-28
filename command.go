@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"errors"
 )
 
 type Command struct {
@@ -51,6 +52,20 @@ func (c *Command) Execute(elements []*Element) *Result {
 		} else {
 			result.SetErrorString(fmt.Sprintf("%v", err))
 		}
+	case "encrypt":
+		element, err := c.encrypt(key, value)
+		if err == nil {
+			result.SetBinaryString(element)
+		} else {
+			result.SetErrorString(fmt.Sprintf("%v", err))
+		}
+	case "decrypt":
+		element, err := c.decrypt(key, value)
+		if err == nil {
+			result.SetBinaryString(element)
+		} else {
+			result.SetErrorString(fmt.Sprintf("%v", err))
+		}
 	case "keys":
 		elements, err = c.keys()
 		if err == nil {
@@ -75,6 +90,38 @@ func (c *Command) get(key string) (*Element, error) {
 		return NewElement(len(data), data), nil
 	}
 	return nil, nil
+}
+
+func (c *Command) encrypt(key string, data []byte) (*Element, error) {
+	value, ok := c.store.Get(key)
+	if !ok {
+		return nil, errors.New("no encryption keys")
+	}
+	encryption, err := NewEncryption(value)
+	if err != nil {
+		return nil, err
+	}
+	encrypted, err := encryption.encrypt(data)
+	if err != nil {
+		return nil, err
+	}
+	return NewElement(len(encrypted), encrypted), nil
+}
+
+func (c *Command) decrypt(key string, data []byte) (*Element, error) {
+	value, ok := c.store.Get(key)
+	if !ok {
+		return nil, errors.New("no decryption keys")
+	}
+	encryption, err := NewEncryption(value)
+	if err != nil {
+		return nil, err
+	}
+	encrypted, err := encryption.decrypt(data)
+	if err != nil {
+		return nil, err
+	}
+	return NewElement(len(encrypted), encrypted), nil
 }
 
 func (c *Command) keys() ([]*Element, error) {
