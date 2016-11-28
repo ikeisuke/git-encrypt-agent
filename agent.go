@@ -1,10 +1,10 @@
 package main
 
 import (
-  "net"
-  "os"
-  "path"
-  "log"
+	"log"
+	"net"
+	"os"
+	"path"
 )
 
 type Agent struct {
@@ -14,13 +14,13 @@ type Agent struct {
 
 func NewAgent(socket string) (*Agent, error) {
 	a := new(Agent)
-  if err := a.Open(socket); err != nil {
-    return nil, err
-  }
-	return a, nil;
+	if err := a.Open(socket); err != nil {
+		return nil, err
+	}
+	return a, nil
 }
 
-func (a *Agent) Open(socket string) (error) {
+func (a *Agent) Open(socket string) error {
 	listener, err := net.Listen("unix", socket)
 	if err != nil {
 		return err
@@ -57,12 +57,12 @@ func (a *Agent) Run() {
 
 func (a *Agent) Process(fd net.Conn) {
 	defer fd.Close()
-  parser := NewParser()
-  if err := parser.Parse(fd); err != nil {
-    log.Printf("error: %v", err)
-    return
-  }
-  command := NewCommand()
-  res := command.Execute(parser.elements)
-  fd.Write(res.data)
+	parser := NewParser()
+	if err := parser.Parse(fd); err != nil {
+		log.Printf("error: %v", err)
+		return
+	}
+	command := NewCommand()
+	res := command.Execute(parser.elements)
+	fd.Write(res.data)
 }

@@ -1,15 +1,15 @@
 package main
 
 import (
+	"fmt"
 	"github.com/codegangsta/cli"
-	"os"
-	"os/signal"
-	"os/exec"
 	"io/ioutil"
+	"log"
+	"os"
+	"os/exec"
+	"os/signal"
 	"strconv"
 	"syscall"
-	"fmt"
-	"log"
 )
 
 const PROJECT_NAME = "git-encrypt"
@@ -59,7 +59,7 @@ func main() {
 	app.Run(os.Args)
 }
 
-func startAgent(c *cli.Context) (error) {
+func startAgent(c *cli.Context) error {
 	socket, err := socketFile()
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -111,13 +111,13 @@ func daemonizeAgent(c *cli.Context) error {
 
 func runAgent(socket string) error {
 	agent, err := NewAgent(socket)
-	if (err != nil) {
-		return err;
+	if err != nil {
+		return err
 	}
 	notify := make(chan int)
-	signalHandler(notify);
+	signalHandler(notify)
 	go func() {
-		_ = <-notify;
+		_ = <-notify
 		if err := agent.Close(); err != nil {
 			log.Printf("error: %v", err)
 		}
