@@ -24,3 +24,5 @@ _testmain.go
 *.prof
 
 git-encrypt-agent
+git-encrypt-agent-*.zip
+.DS_Store
