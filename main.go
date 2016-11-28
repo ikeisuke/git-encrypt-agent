@@ -77,7 +77,7 @@ func startAgent(c *cli.Context) (error) {
 	fmt.Printf("GIT_ENCRYPT_PID=%v;export GIT_ENCRYPT_PID;\n", pid)
 	fmt.Printf("echo Agent pid %v;\n", pid)
 	if c.Bool("d") {
-		return runAgent()
+		return runAgent(socket)
 	}
 	return nil
 }
@@ -99,16 +99,23 @@ func stopAgent(c *cli.Context) error {
 }
 
 func daemonizeAgent(c *cli.Context) error {
-	return runAgent()
+	os.Stdin.Close()
+	os.Stdout.Close()
+	os.Stderr.Close()
+	socket := os.Getenv("GIT_ENCRYPT_SOCK")
+	if socket == "" {
+		return cli.NewExitError("GIT_ENCRYPT_SOCK not set, cannot run agent", 1)
+	}
+	return runAgent(socket)
 }
 
-func runAgent() error {
-	notify := make(chan int)
-	signalHandler(notify);
-	agent, err := NewAgent(os.Getenv("GIT_ENCRYPT_SOCK"))
+func runAgent(socket string) error {
+	agent, err := NewAgent(socket)
 	if (err != nil) {
 		return err;
 	}
+	notify := make(chan int)
+	signalHandler(notify);
 	go func() {
 		_ = <-notify;
 		if err := agent.Close(); err != nil {
