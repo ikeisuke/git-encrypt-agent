@@ -4,6 +4,7 @@ import (
 	"github.com/codegangsta/cli"
 	"os"
 	"os/signal"
+	"os/exec"
 	"io/ioutil"
 	"strconv"
 	"syscall"
@@ -65,39 +66,44 @@ func startAgent(c *cli.Context) (error) {
 	}
 	pid := os.Getpid()
 	if !c.Bool("d") {
-		// cmd := exec.Command(os.Args[0], "daemon")
-		// cmd.Env = append(os.Environ(), fmt.Sprintf("GIT_ENCRYPT_SOCK=%v", socket))
-		// if err := cmd.Start(); err != nil {
-		// 	return cli.NewExitError(err.Error(), 1)
-		// }
-		// pid = cmd.Process.Pid
+		cmd := exec.Command(os.Args[0], "daemon")
+		cmd.Env = append(os.Environ(), fmt.Sprintf("GIT_ENCRYPT_SOCK=%v", socket))
+		if err := cmd.Start(); err != nil {
+			return cli.NewExitError(err.Error(), 1)
+		}
+		pid = cmd.Process.Pid
 	}
 	fmt.Printf("GIT_ENCRYPT_SOCK=%v;export GIT_ENCRYPT_SOCK;\n", socket)
 	fmt.Printf("GIT_ENCRYPT_PID=%v;export GIT_ENCRYPT_PID;\n", pid)
 	fmt.Printf("echo Agent pid %v;\n", pid)
 	if c.Bool("d") {
-		notify := make(chan int)
-		signalHandler(notify);
-		agent, err := NewAgent(socket)
-		if (err != nil) {
-			return err;
-		}
-		go func() {
-			_ = <-notify;
-			if err := agent.Close(); err != nil {
-				log.Printf("error: %v", err)
-			}
-		}()
-		agent.Run()
+		return runAgent()
 	}
 	return nil
 }
 
-func stopAgent(c *cli.Context) (error){
+func stopAgent(c *cli.Context) error {
 	return nil
 }
 
-func daemonizeAgent(c *cli.Context) (error){
+func daemonizeAgent(c *cli.Context) error {
+	return runAgent()
+}
+
+func runAgent() error {
+	notify := make(chan int)
+	signalHandler(notify);
+	agent, err := NewAgent(os.Getenv("GIT_ENCRYPT_SOCK"))
+	if (err != nil) {
+		return err;
+	}
+	go func() {
+		_ = <-notify;
+		if err := agent.Close(); err != nil {
+			log.Printf("error: %v", err)
+		}
+	}()
+	agent.Run()
 	return nil
 }
 
