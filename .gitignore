@@ -22,3 +22,7 @@ _testmain.go
 *.exe
 *.test
 *.prof
+
+git-encrypt-agent
+git-encrypt-agent-*.zip
+.DS_Store

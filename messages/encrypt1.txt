@@ -1,0 +1,7 @@
+*3
+$7
+encrypt
+$10
+samplekey2
+$13
+plaintextdata

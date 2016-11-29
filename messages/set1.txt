@@ -1,0 +1,7 @@
+*3
+$3
+set
+$9
+samplekey
+$10
+sampledata
