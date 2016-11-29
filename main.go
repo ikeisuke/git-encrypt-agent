@@ -10,6 +10,9 @@ import (
 	"os/signal"
 	"strconv"
 	"syscall"
+	"bytes"
+	"io"
+	"bufio"
 )
 
 const PROJECT_NAME = "git-encrypt"
@@ -54,6 +57,46 @@ func main() {
 			Aliases: []string{"k"},
 			Usage:   "stop git-encrypt-agent daemon",
 			Action:  stopAgent,
+		},
+		{
+			Name:    "add",
+			Aliases: []string{"a"},
+			Usage:   "add key for encrypt and decrypt",
+			Action:  addKey,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "name",
+					Usage: "Name for encryption key.",
+				},
+				cli.StringFlag{
+					Name:  "key",
+					Usage: "Data of encryption key.",
+				},
+			},
+		},
+		{
+			Name:    "encrypt",
+			Aliases: []string{"e"},
+			Usage:   "encrypt data",
+			Action:  encrypt,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "name",
+					Usage: "Name for encryption key.",
+				},
+			},
+		},
+		{
+			Name:    "decrypt",
+			Aliases: []string{"d"},
+			Usage:   "encrypt data",
+			Action:  decrypt,
+			Flags: []cli.Flag{
+				cli.StringFlag{
+					Name:  "name",
+					Usage: "Name for encryption key.",
+				},
+			},
 		},
 	}
 	app.Run(os.Args)
@@ -107,6 +150,110 @@ func daemonizeAgent(c *cli.Context) error {
 		return cli.NewExitError("GIT_ENCRYPT_SOCK not set, cannot run agent", 1)
 	}
 	return runAgent(socket)
+}
+
+func addKey(c *cli.Context) error {
+	name := c.String("name")
+	if name == "" {
+		return cli.NewExitError("argument --name is required", 1)
+	}
+	key := c.String("key")
+	if key == "" {
+		return cli.NewExitError("argument --key is required", 1)
+	}
+	if len(key) != 32 {
+		return cli.NewExitError(fmt.Sprintf("argument --key is require 32 charactors, now %v", len(key)), 1)
+	}
+	socket := os.Getenv("GIT_ENCRYPT_SOCK")
+	if socket == "" {
+		return cli.NewExitError("GIT_ENCRYPT_SOCK not set, cannot run agent", 1)
+	}
+	client, err := NewClient(socket)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	client.Set(name, []byte(key))
+	res, err := client.Send();
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	writer := bufio.NewWriter(os.Stdout)
+	writer.Write(res)
+	writer.Write([]byte{10})
+	writer.Flush()
+	return nil
+}
+
+func encrypt(c *cli.Context) error {
+	name := c.String("name")
+	if name == "" {
+		return cli.NewExitError("argument --name is required", 1)
+	}
+	stdin := os.Stdin
+	buffer := bytes.NewBuffer([]byte(""))
+	for {
+		buf := make([]byte, 512)
+		nr, err := stdin.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				return err
+			}
+		}
+		buffer.Write(buf[0:nr])
+	}
+	stdin.Close()
+	socket := os.Getenv("GIT_ENCRYPT_SOCK")
+	client, err := NewClient(socket)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	client.Encrypt(name, buffer.Bytes())
+	encrypted, err := client.Send();
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	writer := bufio.NewWriter(os.Stdout)
+	writer.Write(encrypted)
+	writer.Flush()
+	return nil
+}
+
+func decrypt(c *cli.Context) error {
+	name := c.String("name")
+	if name == "" {
+		return cli.NewExitError("argument --name is required", 1)
+	}
+	stdin := os.Stdin
+	buffer := bytes.NewBuffer([]byte(""))
+	for {
+		buf := make([]byte, 512)
+		nr, err := stdin.Read(buf)
+		if err != nil {
+			if err == io.EOF {
+				break
+			} else {
+				return err
+			}
+		}
+		buffer.Write(buf[0:nr])
+	}
+	stdin.Close()
+	socket := os.Getenv("GIT_ENCRYPT_SOCK")
+	client, err := NewClient(socket)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	client.Decrypt(name, buffer.Bytes())
+	encrypted, err := client.Send();
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	writer := bufio.NewWriter(os.Stdout)
+	writer.Write(encrypted)
+	writer.Flush()
+	return nil
 }
 
 func runAgent(socket string) error {

@@ -24,7 +24,6 @@ func NewEncryption(key []byte) (*Encryption, error) {
 }
 
 func (e *Encryption) encrypt(value []byte) ([]byte, error) {
-	log.Printf("%v", value)
 	iv := make([]byte, e.block.BlockSize())
 	if _, err := rand.Read(iv); err != nil {
 		return nil, err
