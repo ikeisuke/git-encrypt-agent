@@ -52,6 +52,8 @@ type Parser struct {
 	tmpIndex int
 	// 初期化中の数値データ
 	tmpNumber []byte
+	// 初期化中の文字列データ
+	tmpString []byte
 	// 初期化中の改行コード処理状態
 	tmpCrlfState int
 }
@@ -96,9 +98,15 @@ func (r *Parser) write(buf []byte) error {
 	}
 	switch r.state {
 	case UNINITIALIZED:
+		// 42 == *
 		if buf[0:1][0] == 42 {
 			r.state = ELEM_COUNT_INITIALIZING
 			return r.write(buf[1:])
+		} else {
+			r.count = 1
+			r.state = ELEM_INITIALIZING
+			r.elements = make([]*Element, 1, 1)
+			return r.write(buf)
 		}
 		break
 	case ELEM_COUNT_INITIALIZING:
@@ -107,11 +115,18 @@ func (r *Parser) write(buf []byte) error {
 		if r.count <= r.tmpIndex {
 			break
 		}
-		if buf[0:1][0] == 36 {
+		// 36 == $, 43 == +, 45 == -,
+		switch buf[0] {
+		case 36:
 			r.state = ELEM_STRING_SIZE_INITIALIZING
 			return r.write(buf[1:])
+		case 43:
+			return r.writeSimpleStringSize(buf[1:])
+		case 45:
+			return r.writeSimpleStringSize(buf[1:])
+		default:
+			break
 		}
-		break
 	case ELEM_STRING_SIZE_INITIALIZING:
 		return r.writeBinaryStringSize(buf)
 	case ELEM_STRING_INITIALIZING:
@@ -164,6 +179,26 @@ func (r *Parser) readInteger(buf []byte) (int, []byte, error) {
 		return 0, nil, r.protocolError("Invalid charactor in number")
 	}
 	return 0, nil, parseContinue
+}
+
+func (r *Parser) writeSimpleStringSize(buf []byte) error {
+	length := len(buf)
+	if r.tmpString == nil {
+		r.tmpString = make([]byte, 0)
+	}
+	for i := 0; i < length; i++ {
+		b := buf[i:i+1][0]
+		// \r => 13
+		if b == 13 {
+			r.tmpString = append(r.tmpString, buf[:i]...)
+			r.elements[r.tmpIndex] = NewElement(len(r.tmpString), r.tmpString)
+			r.tmpString = nil
+			r.tmpIndex++
+			return nil
+		}
+	}
+	r.tmpString = append(r.tmpString, buf...)
+	return parseContinue
 }
 
 func (r *Parser) writeBinaryStringSize(buf []byte) error {
