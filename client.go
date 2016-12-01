@@ -4,6 +4,7 @@ import (
   "net"
   "errors"
   "log"
+  "fmt"
 )
 
 type Client struct {
@@ -63,7 +64,12 @@ func (c *Client) Send() ([]byte, error) {
     }
     parser := NewParser()
     parser.Parse(c.conn)
-    return parser.elements[0].data, nil
+    element := parser.elements[0]
+    if element.kind == ERROR_STRING {
+      return nil, errors.New(fmt.Sprintf("ERROR: %v", string(parser.elements[0].data)))
+    } else {
+      return parser.elements[0].data, nil
+    }
   }
   return nil, errors.New("unknown error")
 }

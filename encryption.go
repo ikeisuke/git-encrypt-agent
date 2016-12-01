@@ -3,7 +3,7 @@ package main
 import (
 	"crypto/aes"
 	"crypto/cipher"
-	"crypto/rand"
+	"crypto/md5"
 	"encoding/base64"
 	"log"
 )
@@ -14,7 +14,7 @@ type Encryption struct {
 
 func NewEncryption(key []byte) (*Encryption, error) {
 	e := new(Encryption)
-	block, err := aes.NewCipher(key[:32])
+	block, err := aes.NewCipher(key)
 	if err != nil {
 		log.Printf("19, %v", err)
 		return nil, err
@@ -24,10 +24,8 @@ func NewEncryption(key []byte) (*Encryption, error) {
 }
 
 func (e *Encryption) encrypt(value []byte) ([]byte, error) {
-	iv := make([]byte, e.block.BlockSize())
-	if _, err := rand.Read(iv); err != nil {
-		return nil, err
-	}
+	hash := md5.Sum(value)
+	iv := hash[:]
 	stream := cipher.NewCTR(e.block, iv)
 	encrypted := make([]byte, len(value))
 	stream.XORKeyStream(encrypted, value)
