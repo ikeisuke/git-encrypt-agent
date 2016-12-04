@@ -3,6 +3,8 @@ package main
 import (
 	"errors"
 	"fmt"
+	"crypto/md5"
+	"strings"
 )
 
 type Command struct {
@@ -45,8 +47,8 @@ func (c *Command) Execute(elements []*Element) *Result {
 		} else {
 			result.SetErrorString(fmt.Sprintf("%v", err))
 		}
-	case "get":
-		element, err := c.get(key)
+	case "getHash":
+		element, err := c.getHash(key)
 		if err == nil {
 			result.SetBinaryString(element)
 		} else {
@@ -83,11 +85,17 @@ func (c *Command) set(key string, value []byte) error {
 	return c.store.Set(key, value)
 }
 
-func (c *Command) get(key string) (*Element, error) {
+func (c *Command) getHash(key string) (*Element, error) {
 	value, ok := c.store.Get(key)
 	if ok {
-		data := []byte(value)
-		return NewElement(len(data), data), nil
+		hash := md5.Sum(value)
+		length := len(hash);
+		tmp := make([]string, length);
+		for i := 0; i < length; i++ {
+			tmp[i] = fmt.Sprintf("%x", hash[i])
+		}
+		hashString := strings.Join(tmp, ":")
+		return NewElement(len(hashString), []byte(hashString)), nil
 	}
 	return nil, nil
 }
