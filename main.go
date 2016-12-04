@@ -130,7 +130,7 @@ func stopAgent(c *cli.Context) error {
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
-	err = process.Kill()
+	err = process.Signal(syscall.SIGTERM)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
