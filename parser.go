@@ -25,6 +25,7 @@ const (
 )
 
 type Element struct {
+	kind resultTypeCode
 	size int
 	data []byte
 }
@@ -123,7 +124,7 @@ func (r *Parser) write(buf []byte) error {
 		case 43:
 			return r.writeSimpleStringSize(buf[1:])
 		case 45:
-			return r.writeSimpleStringSize(buf[1:])
+			return r.writeErrorStringSize(buf[1:])
 		default:
 			break
 		}
@@ -192,6 +193,28 @@ func (r *Parser) writeSimpleStringSize(buf []byte) error {
 		if b == 13 {
 			r.tmpString = append(r.tmpString, buf[:i]...)
 			r.elements[r.tmpIndex] = NewElement(len(r.tmpString), r.tmpString)
+			r.elements[r.tmpIndex].kind = SIMPLE_STRING
+			r.tmpString = nil
+			r.tmpIndex++
+			return nil
+		}
+	}
+	r.tmpString = append(r.tmpString, buf...)
+	return parseContinue
+}
+
+func (r *Parser) writeErrorStringSize(buf []byte) error {
+	length := len(buf)
+	if r.tmpString == nil {
+		r.tmpString = make([]byte, 0)
+	}
+	for i := 0; i < length; i++ {
+		b := buf[i:i+1][0]
+		// \r => 13
+		if b == 13 {
+			r.tmpString = append(r.tmpString, buf[:i]...)
+			r.elements[r.tmpIndex] = NewElement(len(r.tmpString), r.tmpString)
+			r.elements[r.tmpIndex].kind = ERROR_STRING
 			r.tmpString = nil
 			r.tmpIndex++
 			return nil
@@ -210,6 +233,7 @@ func (r *Parser) writeBinaryStringSize(buf []byte) error {
 		return err
 	}
 	r.elements[r.tmpIndex] = &Element{
+		kind: BINARY_STRING,
 		size: size,
 	}
 	r.state = ELEM_STRING_SIZE_INITIALIZED
