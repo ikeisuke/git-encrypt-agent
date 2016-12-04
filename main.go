@@ -8,11 +8,13 @@ import (
 	"os"
 	"os/exec"
 	"os/signal"
+	"os/user"
 	"strconv"
 	"syscall"
 	"bytes"
 	"io"
 	"bufio"
+	"errors"
 )
 
 const PROJECT_NAME = "git-encrypt"
@@ -103,33 +105,27 @@ func main() {
 }
 
 func startAgent(c *cli.Context) error {
-	socket, err := socketFile()
-	if err != nil {
-		return cli.NewExitError(err.Error(), 1)
-	}
-	pid := os.Getpid()
-	if !c.Bool("d") {
+	if c.Bool("d") {
+		return runAgent()
+	} else {
 		cmd := exec.Command(os.Args[0], "daemon")
-		cmd.Env = append(os.Environ(), fmt.Sprintf("GIT_ENCRYPT_SOCK=%v", socket))
 		if err := cmd.Start(); err != nil {
 			return cli.NewExitError(err.Error(), 1)
 		}
-		pid = cmd.Process.Pid
-	}
-	fmt.Printf("GIT_ENCRYPT_SOCK=%v;export GIT_ENCRYPT_SOCK;\n", socket)
-	fmt.Printf("GIT_ENCRYPT_PID=%v;export GIT_ENCRYPT_PID;\n", pid)
-	fmt.Printf("echo Agent pid %v;\n", pid)
-	if c.Bool("d") {
-		return runAgent(socket)
 	}
 	return nil
 }
 
 func stopAgent(c *cli.Context) error {
-	pid, err := strconv.Atoi(os.Getenv("GIT_ENCRYPT_PID"))
+	pidFile, err := pidFile(false)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
+	pidtmp, err := ioutil.ReadFile(pidFile);
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	pid, err := strconv.Atoi(string(pidtmp))
 	process, err := os.FindProcess(pid)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -142,11 +138,39 @@ func stopAgent(c *cli.Context) error {
 }
 
 func daemonizeAgent(c *cli.Context) error {
-	socket := os.Getenv("GIT_ENCRYPT_SOCK")
-	if socket == "" {
-		return cli.NewExitError("GIT_ENCRYPT_SOCK not set, cannot run agent", 1)
+	if err := runAgent(); err != nil {
+		return cli.NewExitError(err.Error(), 1)
 	}
-	return runAgent(socket)
+	return nil
+}
+
+func runAgent() error {
+	socket, err := socketFile(true)
+	if err != nil {
+		return err
+	}
+	agent, err := NewAgent(socket)
+	if err != nil {
+		return err
+	}
+	notify := make(chan int)
+	signalHandler(notify)
+	go func() {
+		_ = <-notify
+		if err := agent.Close(); err != nil {
+			log.Printf("error: %v", err)
+		}
+	}()
+	_, err = pidFile(true)
+	if err != nil {
+		return err
+	}
+	defer func(){
+		dir, _ := tmpDir(false)
+		os.RemoveAll(dir)
+	}()
+	agent.Run()
+	return nil
 }
 
 func addKey(c *cli.Context) error {
@@ -169,9 +193,9 @@ func addKey(c *cli.Context) error {
 		buffer.Write(buf[0:nr])
 	}
 	stdin.Close()
-	socket := os.Getenv("GIT_ENCRYPT_SOCK")
-	if socket == "" {
-		return cli.NewExitError("GIT_ENCRYPT_SOCK not set, cannot run agent", 1)
+	socket, err := socketFile(false)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
 	}
 	client, err := NewClient(socket)
 	if err != nil {
@@ -209,7 +233,10 @@ func encrypt(c *cli.Context) error {
 		buffer.Write(buf[0:nr])
 	}
 	stdin.Close()
-	socket := os.Getenv("GIT_ENCRYPT_SOCK")
+	socket, err := socketFile(false)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
 	client, err := NewClient(socket)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -248,7 +275,10 @@ func decrypt(c *cli.Context) error {
 	if len(buffer.Bytes()) == 0 {
 		return nil
 	}
-	socket := os.Getenv("GIT_ENCRYPT_SOCK")
+	socket, err := socketFile(false)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
 	client, err := NewClient(socket)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -264,34 +294,50 @@ func decrypt(c *cli.Context) error {
 	return nil
 }
 
-func runAgent(socket string) error {
-	agent, err := NewAgent(socket)
+func socketFile(creates bool) (string, error) {
+	tempDir, err := tmpDir(creates)
 	if err != nil {
-		return err
+		return "", err
 	}
-	notify := make(chan int)
-	signalHandler(notify)
-	go func() {
-		_ = <-notify
-		if err := agent.Close(); err != nil {
-			log.Printf("error: %v", err)
-		}
-	}()
-	agent.Run()
-	return nil
+	socket := tempDir + "/" + PROJECT_NAME + ".sock"
+	return socket, nil
 }
 
-func socketFile() (string, error) {
-	tempDir, err := ioutil.TempDir("", fmt.Sprintf("%s.", PROJECT_NAME))
+func pidFile(creates bool) (string, error) {
+	tempDir, err := tmpDir(creates)
 	if err != nil {
 		return "", err
 	}
-	pid := strconv.Itoa(os.Getpid())
-	socket := tempDir + "/" + SOCKET_FILE_NAME + "." + pid
-	if err := os.Chmod(tempDir, 0700); err != nil {
+	pidFile := tempDir + "/" + PROJECT_NAME + ".pid"
+	if creates {
+		pid := strconv.Itoa(os.Getpid());
+		err := ioutil.WriteFile(pidFile, []byte(pid), 0600);
+		if err != nil {
+			return "", err
+		}
+	}
+	return pidFile, nil
+}
+
+func tmpDir(creates bool) (string, error) {
+	dir := os.Getenv("TMPDIR")
+	if len(dir) == 0 {
+		return "", errors.New("No environment $TMPDIR")
+	}
+	executor, err := user.Current()
+	if err != nil {
 		return "", err
 	}
-	return socket, nil
+	tmpdir := fmt.Sprintf("%v%v.%v", dir, PROJECT_NAME, executor.Uid)
+	if creates {
+		_, err := os.Stat(tmpdir)
+		if err != nil {
+			if err := os.Mkdir(tmpdir, 0700); err != nil {
+				return "", err
+			}
+		}
+	}
+	return tmpdir, nil
 }
 
 func signalHandler(notify chan int) {
