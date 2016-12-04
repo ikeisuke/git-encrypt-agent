@@ -37,6 +37,12 @@ func (c *Client) Set(name string, key []byte) error {
   return nil
 }
 
+func (c *Client) GetHash(name string) error {
+  c.addData([]byte("getHash"))
+  c.addData([]byte(name))
+  return nil
+}
+
 func (c *Client) Encrypt(name string, plaintext []byte) error {
   c.addData([]byte("encrypt"))
   c.addData([]byte(name))

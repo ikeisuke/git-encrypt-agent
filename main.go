@@ -70,9 +70,17 @@ func main() {
 					Name:  "name",
 					Usage: "Name for encryption key.",
 				},
+			},
+		},
+		{
+			Name:    "get",
+			Aliases: []string{"g"},
+			Usage:   "get hash for encrypt and decrypt key",
+			Action:  getHash,
+			Flags: []cli.Flag{
 				cli.StringFlag{
-					Name:  "key",
-					Usage: "Data of encryption key.",
+					Name:  "name",
+					Usage: "Name for encryption key.",
 				},
 			},
 		},
@@ -202,6 +210,32 @@ func addKey(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 1)
 	}
 	client.Set(name, buffer.Bytes())
+	res, err := client.Send();
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	writer := bufio.NewWriter(os.Stdout)
+	writer.Write(res)
+	writer.Write([]byte{10})
+	writer.Flush()
+	return nil
+}
+
+
+func getHash(c *cli.Context) error {
+	name := c.String("name")
+	if name == "" {
+		return cli.NewExitError("argument --name is required", 1)
+	}
+	socket, err := socketFile(false)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	client, err := NewClient(socket)
+	if err != nil {
+		return cli.NewExitError(err.Error(), 1)
+	}
+	client.GetHash(name)
 	res, err := client.Send();
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
