@@ -5,7 +5,6 @@ import (
 	"crypto/cipher"
 	"crypto/md5"
 	"encoding/base64"
-	"log"
 )
 
 type Encryption struct {
@@ -16,7 +15,6 @@ func NewEncryption(key []byte) (*Encryption, error) {
 	e := new(Encryption)
 	block, err := aes.NewCipher(key)
 	if err != nil {
-		log.Printf("19, %v", err)
 		return nil, err
 	}
 	e.block = block
