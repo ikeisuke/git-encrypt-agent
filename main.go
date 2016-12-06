@@ -14,7 +14,7 @@ import (
 	"bytes"
 	"io"
 	"bufio"
-	"errors"
+	"strings"
 )
 
 const PROJECT_NAME = "git-encrypt"
@@ -201,6 +201,10 @@ func addKey(c *cli.Context) error {
 		buffer.Write(buf[0:nr])
 	}
 	stdin.Close()
+	key := buffer.Bytes()
+	if len(key) != 32 {
+		return cli.NewExitError(fmt.Sprintf("Error: invalid key size %v", len(key)), 1)
+	}
 	socket, err := socketFile(false)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -209,7 +213,7 @@ func addKey(c *cli.Context) error {
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
-	client.Set(name, buffer.Bytes())
+	client.Set(name, key)
 	res, err := client.Send();
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -356,13 +360,14 @@ func pidFile(creates bool) (string, error) {
 func tmpDir(creates bool) (string, error) {
 	dir := os.Getenv("TMPDIR")
 	if len(dir) == 0 {
-		return "", errors.New("No environment $TMPDIR")
+		dir = "/tmp"
 	}
+	dir = strings.TrimSuffix(dir, "/")
 	executor, err := user.Current()
 	if err != nil {
 		return "", err
 	}
-	tmpdir := fmt.Sprintf("%v%v.%v", dir, PROJECT_NAME, executor.Uid)
+	tmpdir := fmt.Sprintf("%v/%v.%v", dir, PROJECT_NAME, executor.Uid)
 	if creates {
 		_, err := os.Stat(tmpdir)
 		if err != nil {
