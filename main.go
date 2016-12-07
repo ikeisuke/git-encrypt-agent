@@ -1,8 +1,11 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"fmt"
 	"github.com/codegangsta/cli"
+	"io"
 	"io/ioutil"
 	"log"
 	"os"
@@ -10,11 +13,8 @@ import (
 	"os/signal"
 	"os/user"
 	"strconv"
+	"strings"
 	"syscall"
-	"bytes"
-	"io"
-	"bufio"
-	"errors"
 )
 
 const PROJECT_NAME = "git-encrypt"
@@ -129,7 +129,7 @@ func stopAgent(c *cli.Context) error {
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
-	pidtmp, err := ioutil.ReadFile(pidFile);
+	pidtmp, err := ioutil.ReadFile(pidFile)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
@@ -173,7 +173,7 @@ func runAgent() error {
 	if err != nil {
 		return err
 	}
-	defer func(){
+	defer func() {
 		dir, _ := tmpDir(false)
 		os.RemoveAll(dir)
 	}()
@@ -201,6 +201,10 @@ func addKey(c *cli.Context) error {
 		buffer.Write(buf[0:nr])
 	}
 	stdin.Close()
+	key := buffer.Bytes()
+	if len(key) != 32 {
+		return cli.NewExitError(fmt.Sprintf("Error: invalid key size %v", len(key)), 1)
+	}
 	socket, err := socketFile(false)
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
@@ -209,8 +213,8 @@ func addKey(c *cli.Context) error {
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
-	client.Set(name, buffer.Bytes())
-	res, err := client.Send();
+	client.Set(name, key)
+	res, err := client.Send()
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
@@ -220,7 +224,6 @@ func addKey(c *cli.Context) error {
 	writer.Flush()
 	return nil
 }
-
 
 func getHash(c *cli.Context) error {
 	name := c.String("name")
@@ -236,7 +239,7 @@ func getHash(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 1)
 	}
 	client.GetHash(name)
-	res, err := client.Send();
+	res, err := client.Send()
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
@@ -276,7 +279,7 @@ func encrypt(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 1)
 	}
 	client.Encrypt(name, buffer.Bytes())
-	encrypted, err := client.Send();
+	encrypted, err := client.Send()
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
@@ -318,7 +321,7 @@ func decrypt(c *cli.Context) error {
 		return cli.NewExitError(err.Error(), 1)
 	}
 	client.Decrypt(name, buffer.Bytes())
-	encrypted, err := client.Send();
+	encrypted, err := client.Send()
 	if err != nil {
 		return cli.NewExitError(err.Error(), 1)
 	}
@@ -344,8 +347,8 @@ func pidFile(creates bool) (string, error) {
 	}
 	pidFile := tempDir + "/" + PROJECT_NAME + ".pid"
 	if creates {
-		pid := strconv.Itoa(os.Getpid());
-		err := ioutil.WriteFile(pidFile, []byte(pid), 0600);
+		pid := strconv.Itoa(os.Getpid())
+		err := ioutil.WriteFile(pidFile, []byte(pid), 0600)
 		if err != nil {
 			return "", err
 		}
@@ -356,13 +359,14 @@ func pidFile(creates bool) (string, error) {
 func tmpDir(creates bool) (string, error) {
 	dir := os.Getenv("TMPDIR")
 	if len(dir) == 0 {
-		return "", errors.New("No environment $TMPDIR")
+		dir = "/tmp"
 	}
+	dir = strings.TrimSuffix(dir, "/")
 	executor, err := user.Current()
 	if err != nil {
 		return "", err
 	}
-	tmpdir := fmt.Sprintf("%v%v.%v", dir, PROJECT_NAME, executor.Uid)
+	tmpdir := fmt.Sprintf("%v/%v.%v", dir, PROJECT_NAME, executor.Uid)
 	if creates {
 		_, err := os.Stat(tmpdir)
 		if err != nil {

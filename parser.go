@@ -188,7 +188,7 @@ func (r *Parser) writeSimpleStringSize(buf []byte) error {
 		r.tmpString = make([]byte, 0)
 	}
 	for i := 0; i < length; i++ {
-		b := buf[i:i+1][0]
+		b := buf[i : i+1][0]
 		// \r => 13
 		if b == 13 {
 			r.tmpString = append(r.tmpString, buf[:i]...)
@@ -209,7 +209,7 @@ func (r *Parser) writeErrorStringSize(buf []byte) error {
 		r.tmpString = make([]byte, 0)
 	}
 	for i := 0; i < length; i++ {
-		b := buf[i:i+1][0]
+		b := buf[i : i+1][0]
 		// \r => 13
 		if b == 13 {
 			r.tmpString = append(r.tmpString, buf[:i]...)

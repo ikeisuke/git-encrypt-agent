@@ -1,9 +1,9 @@
 package main
 
 import (
+	"crypto/md5"
 	"errors"
 	"fmt"
-	"crypto/md5"
 	"strings"
 )
 
@@ -89,8 +89,8 @@ func (c *Command) getHash(key string) (*Element, error) {
 	value, ok := c.store.Get(key)
 	if ok {
 		hash := md5.Sum(value)
-		length := len(hash);
-		tmp := make([]string, length);
+		length := len(hash)
+		tmp := make([]string, length)
 		for i := 0; i < length; i++ {
 			tmp[i] = fmt.Sprintf("%x", hash[i])
 		}
