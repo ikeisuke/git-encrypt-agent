@@ -23,12 +23,17 @@ package cmd
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"path"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
 
 var cfgFile string
+var projectRootDir string
+var projectGitDir string
 
 // RootCmd represents the base command when called without any subcommands
 var RootCmd = &cobra.Command{
@@ -55,13 +60,29 @@ func Execute() {
 }
 
 func init() {
+	gitDir, err := exec.Command("git", "rev-parse", "--git-dir").Output()
+	if err != nil {
+		fmt.Println("Error: Failed to find .git directory")
+		os.Exit(-1);
+	}
+	topLevelDir, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
+	if err != nil {
+		fmt.Println("Error: Failed to find project root directory")
+		os.Exit(-1);
+	}
+	projectRootDir = string(topLevelDir[:len(topLevelDir)-1])
+	if strings.HasPrefix(string(gitDir), "/") {
+		projectGitDir = string(gitDir[:len(gitDir)-1])
+	} else {
+		projectGitDir = path.Join(projectRootDir, string(gitDir[:len(gitDir)-1]))
+	}
+
 	cobra.OnInitialize(initConfig)
 
 	// Here you will define your flags and configuration settings.
 	// Cobra supports Persistent Flags, which, if defined here,
 	// will be global for your application.
-
-	RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.git-encrypt.yaml)")
+	//RootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.git-encrypt.yaml)")
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
 	RootCmd.Flags().BoolP("toggle", "t", false, "Help message for toggle")
