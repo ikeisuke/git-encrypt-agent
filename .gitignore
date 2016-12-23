@@ -26,3 +26,6 @@ _testmain.go
 git-encrypt-agent
 git-encrypt-agent-*.zip
 .DS_Store
+
+vendor
+.gitdatakey
