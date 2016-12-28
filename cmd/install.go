@@ -47,6 +47,7 @@ to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
 		keyId := cmd.Flags().Lookup("key-id").Value.String()
 		if len(keyId) > 0 {
+			// TODO: 上書きチェック
 			sess, err := session.NewSessionWithOptions(session.Options{
 			     Config: aws.Config{Region: aws.String("ap-northeast-1")},
 			     Profile: "gitencrypt",
