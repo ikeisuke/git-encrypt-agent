@@ -25,8 +25,8 @@ import (
 // versionCmd represents the version command
 var versionCmd = &cobra.Command{
 	Use:   "version",
-	Short: "",
-	Long: "",
+	Short: "Show program's version and exit",
+	Long:  "",
 	Run: func(cmd *cobra.Command, args []string) {
 		fmt.Printf("%s version %s\n", RootCmd.Name(), version.CmdVersion)
 	},
