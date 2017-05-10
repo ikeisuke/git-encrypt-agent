@@ -267,6 +267,9 @@ func (r *Parser) writeCRLF(buf []byte) error {
 		b := buf[i : i+1][0]
 		if b == 13 && r.tmpCrlfState == 0 {
 			r.tmpCrlfState = 1
+			if length == i+1 {
+				return nil
+			}
 			continue
 		} else if b == 10 && r.tmpCrlfState == 1 {
 			r.tmpCrlfState = 0
