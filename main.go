@@ -25,7 +25,7 @@ func main() {
 	app := cli.NewApp()
 	app.Name = "git-encrypt-agent"
 	app.Usage = "git enctyption key management agent"
-	app.Version = "0.1.1"
+	app.Version = "0.1.2"
 	app.Commands = []cli.Command{
 		{
 			Name:    "start",
