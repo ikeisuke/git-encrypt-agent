@@ -74,10 +74,9 @@ func (c *Client) Send() ([]byte, error) {
 		}
 		element := parser.elements[0]
 		if element.kind == ERROR_STRING {
-			return nil, errors.New(fmt.Sprintf("ERROR: %v", string(parser.elements[0].data)))
-		} else {
-			return parser.elements[0].data, nil
+			return nil, fmt.Errorf("ERROR: %v", string(parser.elements[0].data))
 		}
+		return parser.elements[0].data, nil
 	}
 	return nil, errors.New("unknown error")
 }
