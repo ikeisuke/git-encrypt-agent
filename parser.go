@@ -103,13 +103,11 @@ func (r *Parser) write(buf []byte) error {
 		if buf[0:1][0] == 42 {
 			r.state = ELEM_COUNT_INITIALIZING
 			return r.write(buf[1:])
-		} else {
-			r.count = 1
-			r.state = ELEM_INITIALIZING
-			r.elements = make([]*Element, 1, 1)
-			return r.write(buf)
 		}
-		break
+		r.count = 1
+		r.state = ELEM_INITIALIZING
+		r.elements = make([]*Element, 1, 1)
+		return r.write(buf)
 	case ELEM_COUNT_INITIALIZING:
 		return r.writeElementsCount(buf)
 	case ELEM_INITIALIZING:
@@ -255,9 +253,8 @@ func (r *Parser) writeBinaryString(buf []byte) error {
 		r.nextState = ELEM_INITIALIZING
 		r.tmpIndex++
 		return r.write(buf[remaining:])
-	} else {
-		element.data = append(element.data, buf...)
 	}
+	element.data = append(element.data, buf...)
 	return nil
 }
 
@@ -283,5 +280,5 @@ func (r *Parser) writeCRLF(buf []byte) error {
 }
 
 func (r *Parser) protocolError(message string) error {
-	return errors.New(fmt.Sprintf("Protocol Error: %s", message))
+	return fmt.Errorf("Protocol Error: %s", message)
 }
