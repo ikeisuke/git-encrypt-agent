@@ -32,6 +32,9 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kms"
+
+	"github.com/ikeisuke/git-encrypt-agent/config"
+	"github.com/ikeisuke/git-encrypt-agent/install"
 )
 
 // installCmd represents the install command
@@ -45,24 +48,27 @@ Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
 	Run: func(cmd *cobra.Command, args []string) {
+		datakeyfile := path.Join(projectRootDir, ".gitdatakey")
+		data, err := install.LoadDataKey(datakeyfile)
+		if err != nil {
+			fmt.Printf("Failed to load data key, %v\n", err)
+			os.Exit(-1)
+		}
 		keyId := cmd.Flags().Lookup("key-id").Value.String()
 		if len(keyId) > 0 {
-			// TODO: 上書きチェック
-			sess, err := session.NewSessionWithOptions(session.Options{
-			     Config: aws.Config{Region: aws.String("ap-northeast-1")},
-			     Profile: "gitencrypt",
-			})
-			k := kms.New(sess)
-			r := kms.GenerateDataKeyWithoutPlaintextInput{}
-			r.SetKeyId(keyId)
-			r.SetKeySpec("AES_256")
-			data, err := k.GenerateDataKeyWithoutPlaintext(&r);
+			if data != nil {
+				fmt.Println("Data key already exists")
+				os.Exit(-1)
+			}
+			c := config.Load(projectGitDir)
+			d := install.NewDataKeyWithConfig(c)
+			d.SetKeyId(keyId)
+			data, err = d.GenerateDataKey()
 			if err != nil {
 				fmt.Printf("Failed to generate data key, %v\n", err)
 				os.Exit(-1)
 			}
-			datakeyfile := path.Join(projectRootDir, ".gitdatakey")
-			err = ioutil.WriteFile(datakeyfile, data.CiphertextBlob, 0644)
+			err = install.SaveDataKey(datakeyfile, data)
 			if err != nil {
 				fmt.Printf("Failed to save config file, %v\n", err)
 				os.Exit(-1)

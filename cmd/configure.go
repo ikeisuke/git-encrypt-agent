@@ -28,6 +28,8 @@ import (
 	"io/ioutil"
 
 	"github.com/spf13/cobra"
+
+	"github.com/ikeisuke/git-encrypt-agent/config"
 )
 
 // configureCmd represents the configure command
@@ -38,23 +40,12 @@ var configureCmd = &cobra.Command{
 If this command is run, you wil be prompted for configuration values
 such as your AWS Profile Name and AWS Region Name.`,
 	Run: func(cmd *cobra.Command, args []string) {
-		configFile := path.Join(projectGitDir, "info/encrypt")
-		data, err := ioutil.ReadFile(configFile)
-		if err != nil {
-			data = []byte("{}")
-		}
-		c := Config{}
-		json.Unmarshal(data, &c)
+		c := config.Load(projectGitDir)
 		profile := waitInput("AWS Profile Name", c.AWSProfileName)
 		region := waitInput("AWS Region Name", c.AWSRegionName)
 		c.AWSProfileName = profile;
 		c.AWSRegionName = region;
-		data, err = json.Marshal(c)
-		if err != nil {
-			fmt.Printf("Failed to save config file, %v\n", err)
-			os.Exit(-1)
-		}
-		err = ioutil.WriteFile(configFile, data, 0644)
+		err := config.Save(projectGitDir, c)
 		if err != nil {
 			fmt.Printf("Failed to save config file, %v\n", err)
 			os.Exit(-1)
