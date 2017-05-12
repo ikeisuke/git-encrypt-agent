@@ -21,11 +21,11 @@
 package cmd
 
 import (
-	"fmt"
-	"os"
-	"io/ioutil"
-	"path"
 	"bufio"
+	"fmt"
+	"io/ioutil"
+	"os"
+	"path"
 
 	"github.com/spf13/cobra"
 )
@@ -74,7 +74,7 @@ to quickly create a Cobra application.`,
 			fmt.Printf("Failed to read file: %v, %v\n", attributeFile, err)
 			os.Exit(-1)
 		}
-		defer func(){
+		defer func() {
 			f.Close()
 			file.Close()
 			os.Rename(filename, attributeFile)
@@ -85,7 +85,7 @@ to quickly create a Cobra application.`,
 		append := fmt.Sprintf("%s filter=git-encrypt diff=git-encrypt", pattern)
 		for scanner.Scan() {
 			line := scanner.Text()
-		 	writer.WriteString(line + "\n")
+			writer.WriteString(line + "\n")
 			if append == line {
 				exist = true
 			}

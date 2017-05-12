@@ -22,16 +22,16 @@ package cmd
 
 import (
 	"fmt"
-	"path"
 	"io/ioutil"
 	"os"
 	"os/exec"
+	"path"
 	"strings"
 
-	"github.com/spf13/cobra"
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/kms"
+	"github.com/spf13/cobra"
 
 	"github.com/ikeisuke/git-encrypt-agent/config"
 	"github.com/ikeisuke/git-encrypt-agent/install"
@@ -86,16 +86,16 @@ to quickly create a Cobra application.`,
 		if "true" != statusString {
 			var input string
 			for {
-				fmt.Printf("Overwrite merge.renormalize to true from %s [Y/n]: ", statusString);
+				fmt.Printf("Overwrite merge.renormalize to true from %s [Y/n]: ", statusString)
 				fmt.Scanln(&input)
 				if len(input) == 0 {
 					exec.Command("git", "config", "--replace-all", "--local", "merge.renormalize", "true").Run()
-					break;
+					break
 				}
 				first := strings.ToLower(input[:1])
 				if first == "y" {
 					exec.Command("git", "config", "--replace-all", "--local", "merge.renormalize", "true").Run()
-					break;
+					break
 				} else if first == "n" {
 					fmt.Printf("Install failed, git-encrypt required merge.renormalize to be true\n")
 					os.Exit(-1)

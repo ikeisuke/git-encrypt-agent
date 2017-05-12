@@ -21,11 +21,11 @@
 package cmd
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path"
-	"encoding/json"
-	"io/ioutil"
 
 	"github.com/spf13/cobra"
 
@@ -43,8 +43,8 @@ such as your AWS Profile Name and AWS Region Name.`,
 		c := config.Load(projectGitDir)
 		profile := waitInput("AWS Profile Name", c.AWSProfileName)
 		region := waitInput("AWS Region Name", c.AWSRegionName)
-		c.AWSProfileName = profile;
-		c.AWSRegionName = region;
+		c.AWSProfileName = profile
+		c.AWSRegionName = region
 		err := config.Save(projectGitDir, c)
 		if err != nil {
 			fmt.Printf("Failed to save config file, %v\n", err)
@@ -56,12 +56,12 @@ such as your AWS Profile Name and AWS Region Name.`,
 func waitInput(text string, value string) string {
 	var input string
 	var displayValue string
-	if (len(value) == 0) {
+	if len(value) == 0 {
 		displayValue = "None"
 	} else {
 		displayValue = value
 	}
-	fmt.Printf("%s [%s]: ", text, displayValue);
+	fmt.Printf("%s [%s]: ", text, displayValue)
 	fmt.Scanln(&input)
 	if len(input) == 0 {
 		return value

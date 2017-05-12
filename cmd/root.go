@@ -45,9 +45,9 @@ examples and usage of using your application. For example:
 Cobra is a CLI library for Go that empowers applications.
 This application is a tool to generate the needed files
 to quickly create a Cobra application.`,
-// Uncomment the following line if your bare application
-// has an action associated with it:
-//	Run: func(cmd *cobra.Command, args []string) { },
+	// Uncomment the following line if your bare application
+	// has an action associated with it:
+	//	Run: func(cmd *cobra.Command, args []string) { },
 }
 
 // Execute adds all child commands to the root command sets flags appropriately.
@@ -63,12 +63,12 @@ func init() {
 	gitDir, err := exec.Command("git", "rev-parse", "--git-dir").Output()
 	if err != nil {
 		fmt.Println("Error: Failed to find .git directory")
-		os.Exit(-1);
+		os.Exit(-1)
 	}
 	topLevelDir, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
 	if err != nil {
 		fmt.Println("Error: Failed to find project root directory")
-		os.Exit(-1);
+		os.Exit(-1)
 	}
 	projectRootDir = string(topLevelDir[:len(topLevelDir)-1])
 	if strings.HasPrefix(string(gitDir), "/") {
@@ -95,8 +95,8 @@ func initConfig() {
 	}
 
 	viper.SetConfigName(".git-encrypt") // name of config file (without extension)
-	viper.AddConfigPath("$HOME")  // adding home directory as first search path
-	viper.AutomaticEnv()          // read in environment variables that match
+	viper.AddConfigPath("$HOME")        // adding home directory as first search path
+	viper.AutomaticEnv()                // read in environment variables that match
 
 	// If a config file is found, read it in.
 	if err := viper.ReadInConfig(); err == nil {
