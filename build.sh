@@ -1,10 +1,9 @@
 #!/bin/bash
 
-GOOS=("linux" "darwin")
-GOARCH=("amd64" "amd64")
+GOOS=("linux" "darwin" "darwin")
+GOARCH=("amd64" "amd64" "arm64")
 
-for((i=0;i<${#GOOS[@]};++i))
-do
+for ((i = 0; i < ${#GOOS[@]}; ++i)); do
   _goos=${GOOS[$i]}
   _goarch=${GOARCH[$i]}
   _out=git-encrypt-agent
