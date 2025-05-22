@@ -4,7 +4,6 @@ import (
 	"bufio"
 	"bytes"
 	"fmt"
-	"github.com/codegangsta/cli"
 	"io"
 	"io/ioutil"
 	"log"
@@ -15,10 +14,14 @@ import (
 	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/urfave/cli"
 )
 
-const PROJECT_NAME = "git-encrypt"
-const SOCKET_FILE_NAME = "agent"
+const (
+	PROJECT_NAME     = "git-encrypt"
+	SOCKET_FILE_NAME = "agent"
+)
 
 func main() {
 	log.SetFlags(log.Lshortfile)
@@ -348,7 +351,7 @@ func pidFile(creates bool) (string, error) {
 	pidFile := tempDir + "/" + PROJECT_NAME + ".pid"
 	if creates {
 		pid := strconv.Itoa(os.Getpid())
-		err := ioutil.WriteFile(pidFile, []byte(pid), 0600)
+		err := ioutil.WriteFile(pidFile, []byte(pid), 0o600)
 		if err != nil {
 			return "", err
 		}
@@ -370,7 +373,7 @@ func tmpDir(creates bool) (string, error) {
 	if creates {
 		_, err := os.Stat(tmpdir)
 		if err != nil {
-			if err := os.Mkdir(tmpdir, 0700); err != nil {
+			if err := os.Mkdir(tmpdir, 0o700); err != nil {
 				return "", err
 			}
 		}
